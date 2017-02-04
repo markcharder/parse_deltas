@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import operator
 import optparse
 import re
 
@@ -98,39 +99,75 @@ for line in contents:
 query_list	= list(set(query_list))
 sizes		= []
 size_dict	= dict()
-refsize_dict 	= dict()
+refaligns 	= dict()
+details		= dict()
 
 for item in query_list:
 	for okey in refs.iterkeys():
 		for ikey, value in refs[okey].iteritems():
 			if ikey == item:
-				start_list	= refs[okey][ikey]['rstarts']
-				end_list	= refs[okey][ikey]['rends']
-				for i in range(0,len(refs[okey][ikey]['rstarts'])):
-					if int(start_list[i]) > int(end_list[i]):
-						size = int(start_list[i]) - int(end_list[i])
-					elif int(end_list[i]) > int(start_list[i]):
-						size = int(end_list[i]) - int(start_list[i])
-					sizes.append(size)
-				sizes.sort(reverse=True)
-				refsize_dict = dict_append(refsize_dict, {okey: sizes[0]})
-				sizes = []
-	new_dict 	= {item: refsize_dict}
-	size_dict 	= dict_append(size_dict, new_dict)
-	refsize_dict	= dict()
+				rstarts	= refs[okey][ikey]['rstarts']
+				rends	= refs[okey][ikey]['rends']
+				qstarts	= refs[okey][ikey]['qstarts']
+				qends	= refs[okey][ikey]['qends']
+				indels	= refs[okey][ikey]['indels']
+				diffs	= refs[okey][ikey]['diffs']
+				stops	= refs[okey][ikey]['stops']
+				for i in range(0, len(rstarts)):
+					if int(rstarts[i]) > int(rends[i]):
+						size	= int(rstarts[i]) - int(rends[i]) + 1
+						orient	= 'r'
+					elif int(rstarts[i]) < int(rends[i]):
+						size	= int(rends[i]) - int(rstarts[i]) + 1
+						orient	= 'f'
+					percid	= 100 - (float(int(diffs[i])) / float(size) * 100)
+					dlist	= [size, orient, percid]
+					if okey in details:
+						details[okey]	= details[okey] + dlist
+					else:
+						details		= {okey: dlist}
+					if ikey in refaligns:
+						refaligns[ikey]	= dict_append(refaligns[ikey], details)
+					else:
+						refaligns[ikey]	= details
 
+tops 		= dict()
+best_aligns	= dict()
+
+for okey in refaligns.iterkeys():
+	for ikey, value in refaligns[okey].iteritems():
+		for i in range(0, len(value), 3):
+			if i == 0:
+				tdlist	= []
+			pair	= (int(value[i]), float(value[i+2]))
+			tdlist.append(pair)
+		tdlist.sort(key=lambda x: (x[0], x[1]), reverse=True)
+		sizes		= [i[0] for i in tdlist]
+		idslist		= [i[1] for i in tdlist]
+		top		= {ikey: [sizes[0], idslist[0]]}
+		if okey not in tops:
+			tops		= {okey: top}
+		else:
+			tops[okey] 	= dict_append(tops[okey], top)
+	best_aligns = dict_append(best_aligns, tops)
+
+# Problem here with keys all having same values.
+
+for key, value in best_aligns.iteritems():
+	topalignment	= sorted(value.items(), key=lambda e: e[1][0], reverse=True) # need to also sort by pident
+	print key topalignments
 # Define function to return dictionary items with largest first array value. Maybe add to external mod.
 
-def get_best_aligns(dictionary):
-	for key, value in dictionary:
-		if value > previous:
-			new = key
-		previous = value
-	return new
+#def get_best_aligns(dictionary):
+#	for key, value in dictionary:
+#		if value > previous:
+#			new = key
+#		previous = value
+#	return new
 		
 
-for okey, value in refsize_dict.iteritems():
-	get_best_aligns
+#for okey, value in refsize_dict.iteritems():
+#	get_best_aligns
 			
 
 #for key, value in refs[ref]
@@ -159,3 +196,4 @@ for okey, value in refsize_dict.iteritems():
 
 #svg_file	= open(options.out_file, 'w')
 #svg_file.write(svg_begin + "\n\t" + rect + "\n\t" + svg_set_start + "\n\t\t" + xaxis_properties + "\n\t\t" + yaxis_properties + "\n\t" + svg_set_end + "\n" + svg_end)
+
